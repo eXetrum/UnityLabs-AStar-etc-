@@ -1,0 +1,172 @@
+﻿using UnityEngine;
+using System.Collections.Generic;
+
+public class WaypointGraph {
+
+	public Graph navGraph;
+	protected List<GameObject> waypoints;
+	public GameObject this[int i] {
+		get { return waypoints [i]; }
+		set { waypoints [i] = value; }
+	}
+
+	public WaypointGraph(GameObject waypointSet) {
+
+		waypoints = new List<GameObject> ();
+		navGraph = new AdjacencyListGraph ();
+
+		findWaypoints (waypointSet);
+		buildGraph ();
+	}
+		
+	private void findWaypoints(GameObject waypointSet) {
+
+		if (waypointSet != null) {
+			foreach (Transform t in waypointSet.transform) {
+				waypoints.Add (t.gameObject);
+			}
+			Debug.Log("Found " + waypoints.Count + " waypoints.");
+
+		} else {
+			Debug.Log ("No waypoints found.");
+
+		}
+	}
+
+    private double DistanceBetweenWP(int a, int b)
+    {
+        if (a < 0 || a >= waypoints.Count || b < 0 || b >= waypoints.Count) return double.MaxValue;
+        return Vector3.Distance(waypoints[a].transform.position, waypoints[b].transform.position);
+    }
+
+    private void buildGraph() {
+
+		int n = waypoints.Count;
+
+		navGraph = new AdjacencyListGraph ();
+		for (int i = 0; i < n; i++) {
+			navGraph.addNode (i);
+		}
+
+        // ADD APPROPRIATE EDGES
+        // Waypoint #1
+        navGraph.addEdge(0, 1, DistanceBetweenWP(0, 1));
+        navGraph.addEdge(0, 2, DistanceBetweenWP(0, 2));
+        navGraph.addEdge(0, 3, DistanceBetweenWP(0, 3));
+        navGraph.addEdge(0, 7, DistanceBetweenWP(0, 7));
+        // Waypoint #2
+        navGraph.addEdge(1, 0, DistanceBetweenWP(1, 0));
+        navGraph.addEdge(1, 2, DistanceBetweenWP(1, 2));
+        navGraph.addEdge(1, 3, DistanceBetweenWP(1, 3));
+        // Waypoint #3
+        navGraph.addEdge(2, 0, DistanceBetweenWP(2, 0));
+        navGraph.addEdge(2, 1, DistanceBetweenWP(2, 1));
+        // Waypoint #4
+        navGraph.addEdge(3, 0, DistanceBetweenWP(3, 0));
+        navGraph.addEdge(3, 1, DistanceBetweenWP(3, 1));
+        navGraph.addEdge(3, 4, DistanceBetweenWP(3, 4));
+        navGraph.addEdge(3, 8, DistanceBetweenWP(3, 8));
+        // Waypoint #5
+        navGraph.addEdge(4, 3, DistanceBetweenWP(4, 3));
+        navGraph.addEdge(4, 1, DistanceBetweenWP(4, 1));
+        navGraph.addEdge(4, 7, DistanceBetweenWP(4, 7));
+        // Waypoint #6
+        navGraph.addEdge(5, 6, DistanceBetweenWP(5, 6));
+        navGraph.addEdge(5, 7, DistanceBetweenWP(5, 7));
+        // Waypoint #7
+        navGraph.addEdge(6, 5, DistanceBetweenWP(6, 5));
+        navGraph.addEdge(6, 7, DistanceBetweenWP(6, 7));
+        navGraph.addEdge(6, 8, DistanceBetweenWP(6, 8));
+        // Waypoint #8
+        navGraph.addEdge(7, 0, DistanceBetweenWP(7, 0));
+        navGraph.addEdge(7, 5, DistanceBetweenWP(7, 5));
+        navGraph.addEdge(7, 6, DistanceBetweenWP(7, 6));
+        navGraph.addEdge(7, 4, DistanceBetweenWP(7, 4));
+        navGraph.addEdge(7, 8, DistanceBetweenWP(7, 8));
+        // Waypoint #9
+        navGraph.addEdge(8, 3, DistanceBetweenWP(8, 3));
+        navGraph.addEdge(8, 7, DistanceBetweenWP(8, 7));
+        navGraph.addEdge(8, 6, DistanceBetweenWP(8, 6));
+        List<int> nodes = navGraph.nodes();
+        foreach(var vi in nodes)
+        {
+            List<int> adj = navGraph.neighbours(vi);
+            string s = "#" + vi + ": " + adj.Count + "\n";
+            Debug.Log(s);
+            for (int vj = 0; vj < adj.Count; ++vj)
+            {
+
+                s = "(" + vi + " " + adj[vj]+ ") == " + navGraph.getEdgeCost(vi, adj[vj]);
+                Debug.Log(s);
+            }
+
+            //Debug.Log(s);
+        }
+    }
+
+
+	public int? findNearest(Vector3 here) {
+		int? nearest = null;
+
+		if (waypoints.Count > 0) {
+			nearest = 0;
+			Vector3 there = waypoints [0].transform.position;
+			float minDistance = Vector3.Distance (here, there);
+
+			for (int i = 1; i < waypoints.Count; i++) {
+                
+				there = waypoints[i].transform.position;
+				float distance = Vector3.Distance (here, there);
+                if (distance < minDistance) {
+					nearest = i;
+                    minDistance = distance;
+				}
+			}
+		}
+		return nearest;
+	}
+}
+
+public interface Graph
+{
+    bool addNode(int a); // true if node added
+    bool addEdge(int a, int b, double cost); // true if edge added
+    double getEdgeCost(int a, int b); // Return edge cost
+    List<int> nodes();
+    List<int> neighbours(int a);
+}
+
+public class AdjacencyListGraph : Graph
+{
+    Dictionary<int, Dictionary<int, double>> vertices = new Dictionary<int, Dictionary<int, double>>();
+    // vertex -> adjacency list -> each adjacency vertex has cost
+
+    public bool addEdge(int a, int b, double cost)
+    {
+        // Vertex a or b not found in vertices dictionary or a and b same vertex then we cant add edge
+        if (!vertices.ContainsKey(a) || !vertices.ContainsKey(b) || a == b) return false;
+        // If vertex 'a' have edge with vertex 'b' then vertex 'b' should have same edge with 'a' (non directional graph)
+        if (vertices[a].ContainsKey(b)) return false;
+        vertices[a].Add(b, cost);
+        if (vertices[b].ContainsKey(a)) return false;
+        vertices[b].Add(a, cost);
+        return true;
+    }
+
+    public bool addNode(int a)
+    {
+        if (vertices.ContainsKey(a)) return false;
+        vertices.Add(a, new Dictionary<int, double>());
+        return true;
+    }
+    // Return edge cost 
+    public double getEdgeCost(int a, int b)
+    {
+        // Vertices not found
+        if (!vertices.ContainsKey(a) || !vertices.ContainsKey(b)) return -1;
+        return vertices[a][b];
+    }
+
+    public List<int> neighbours(int a) { return new List<int>(vertices[a].Keys); }
+    public List<int> nodes() { return new List<int>(vertices.Keys); }
+}
